@@ -234,14 +234,16 @@
 
             // 결과 조합
             let result = '고객님의 주문이 접수되었습니다.\n';
-            result += '상품과 경조사어, 보내는 분 명의를 다시 한 번 확인 부탁드립니다.\n\n';
+            result += '상품과 리본문구, 보내는 분 명의를 다시 한 번 확인 부탁드립니다.\n\n';
             result += `＊상품: ${product}\n`;
             result += `＊경조사어: ${greeting}\n`;
             result += `＊보내는분: ${sender}\n`;
             result += `＊배송일: ${deliveryDate}\n`;
             result += `＊배달장소: ${deliveryPlace}\n`;
             result += `＊받는분: ${receiver}\n`;
-            result += '\n고객센터 070-8209-6168 (09:00~18:00)';
+            result += '\n고객센터 | 070-8209-6168';
+            result += '\n카카오톡 | https://pf.kakao.com/_MGnWn/chat';
+            result += '\n상담가능시간 | 연중무휴 09:00~18:00';
 
             return result;
         }
