@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주문서 양식 변환기</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .converter-wrapper {
+            display: flex;
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .input-section, .output-section {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', monospace;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #4a90d9;
+        }
+
+        .button-wrapper {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-convert {
+            background-color: #4a90d9;
+            color: white;
+        }
+
+        .btn-convert:hover {
+            background-color: #3a7bc8;
+            transform: scale(1.05);
+        }
+
+        .btn-copy {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-copy:hover {
+            background-color: #218838;
+            transform: scale(1.05);
+        }
+
+        .btn-clear {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-clear:hover {
+            background-color: #c82333;
+            transform: scale(1.05);
+        }
+
+        .message {
+            text-align: center;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .converter-wrapper {
+                flex-direction: column;
+            }
+
+            .button-wrapper {
+                flex-direction: row;
+                justify-content: center;
+            }
+
+            textarea {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>주문서 양식 변환기</h1>
+
+        <div class="converter-wrapper">
+            <div class="input-section">
+                <div class="section-title">원본 주문서 (붙여넣기)</div>
+                <textarea id="inputText" placeholder="여기에 주문서를 붙여넣으세요..."></textarea>
+            </div>
+
+            <div class="button-wrapper">
+                <button class="btn btn-convert" onclick="convertOrder()">변환 →</button>
+                <button class="btn btn-copy" onclick="copyResult()">복사</button>
+                <button class="btn btn-clear" onclick="clearAll()">초기화</button>
+            </div>
+
+            <div class="output-section">
+                <div class="section-title">변환된 주문서</div>
+                <textarea id="outputText" readonly placeholder="변환된 결과가 여기에 표시됩니다..."></textarea>
+                <div id="message" class="message"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function convertOrder() {
+            const input = document.getElementById('inputText').value;
+
+            if (!input.trim()) {
+                showMessage('주문서를 입력해주세요.', 'error');
+                return;
+            }
+
+            const result = parseAndConvert(input);
+            document.getElementById('outputText').value = result;
+            showMessage('변환 완료!', 'success');
+        }
+
+        function parseAndConvert(text) {
+            const lines = text.split('\n');
+
+            let product = '';
+            let greeting = '';
+            let sender = '';
+            let deliveryDate = '';
+            let deliveryPlace = '';
+            let receiver = '';
+
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+
+                // 상품 추출
+                if (trimmedLine.startsWith('＊상품:') || trimmedLine.startsWith('*상품:')) {
+                    product = extractValue(trimmedLine, '상품');
+                }
+                // 경조사어 추출
+                else if (trimmedLine.startsWith('★경조사어:') || trimmedLine.startsWith('*경조사어:') || trimmedLine.startsWith('＊경조사어:')) {
+                    greeting = extractValue(trimmedLine, '경조사어');
+                }
+                // 보내는분 추출
+                else if (trimmedLine.startsWith('★보내는분:') || trimmedLine.startsWith('*보내는분:') || trimmedLine.startsWith('＊보내는분:')) {
+                    sender = extractValue(trimmedLine, '보내는분');
+                }
+                // 배송일 추출
+                else if (trimmedLine.startsWith('★배송일:') || trimmedLine.startsWith('*배송일:') || trimmedLine.startsWith('＊배송일:')) {
+                    deliveryDate = extractValue(trimmedLine, '배송일');
+                }
+                // 배달장소 추출
+                else if (trimmedLine.startsWith('＊배달장소:') || trimmedLine.startsWith('*배달장소:')) {
+                    deliveryPlace = extractValue(trimmedLine, '배달장소');
+                }
+                // 받는분 추출
+                else if (trimmedLine.startsWith('＊받는분:') || trimmedLine.startsWith('*받는분:')) {
+                    receiver = extractValue(trimmedLine, '받는분');
+                }
+            }
+
+            // 상품명 변환
+            product = convertProductName(product);
+
+            // 받는분에서 불필요한 슬래시 정리
+            receiver = cleanReceiver(receiver);
+
+            // 결과 조합
+            let result = '\n';
+            result += `＊상품: ${product}\n`;
+            result += `＊경조사어: ${greeting}\n`;
+            result += `＊보내는분: ${sender}\n`;
+            result += `＊배송일: ${deliveryDate}\n`;
+            result += `＊배달장소: ${deliveryPlace}\n`;
+            result += `＊받는분: ${receiver}\n`;
+
+            return result;
+        }
+
+        function extractValue(line, fieldName) {
+            // 다양한 형태의 필드명 처리
+            const patterns = [
+                `★${fieldName}:`,
+                `＊${fieldName}:`,
+                `*${fieldName}:`
+            ];
+
+            for (const pattern of patterns) {
+                if (line.includes(pattern)) {
+                    return line.split(pattern)[1].trim();
+                }
+            }
+            return '';
+        }
+
+        function convertProductName(product) {
+            // 상품명에서 " - " 이후 부분 제거
+            let cleanProduct = product.split(' - ')[0].trim();
+
+            // 상품명 변환 규칙
+            if (cleanProduct === '실속근조' || cleanProduct === '착한근조' || cleanProduct === '근조3단') {
+                return '근조3단';
+            }
+            if (cleanProduct === '실속축하' || cleanProduct === '착한축하' || cleanProduct === '축하3단') {
+                return '축하3단';
+            }
+            if (cleanProduct === '오브제2단') {
+                return '근조 신화환 2단';
+            }
+            if (cleanProduct === '오브제') {
+                return '근조 신화환';
+            }
+
+            // 그 외는 그대로
+            return cleanProduct || product;
+        }
+
+        function cleanReceiver(receiver) {
+            // " /  / " 같은 불필요한 슬래시 패턴 제거
+            return receiver.replace(/\s*\/\s*\/\s*$/, '').replace(/\s*\/\s*$/, '').trim();
+        }
+
+        function copyResult() {
+            const output = document.getElementById('outputText');
+
+            if (!output.value.trim()) {
+                showMessage('복사할 내용이 없습니다.', 'error');
+                return;
+            }
+
+            output.select();
+            document.execCommand('copy');
+
+            // 최신 API도 시도
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(output.value).then(() => {
+                    showMessage('클립보드에 복사되었습니다!', 'success');
+                }).catch(() => {
+                    showMessage('클립보드에 복사되었습니다!', 'success');
+                });
+            } else {
+                showMessage('클립보드에 복사되었습니다!', 'success');
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('inputText').value = '';
+            document.getElementById('outputText').value = '';
+            hideMessage();
+        }
+
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = 'message ' + type;
+
+            setTimeout(() => {
+                hideMessage();
+            }, 3000);
+        }
+
+        function hideMessage() {
+            const messageEl = document.getElementById('message');
+            messageEl.className = 'message';
+        }
+
+        // 붙여넣기 이벤트로 자동 변환
+        document.getElementById('inputText').addEventListener('paste', function() {
+            setTimeout(() => {
+                convertOrder();
+            }, 100);
+        });
+    </script>
+</body>
+</html>
