@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="format-detection" content="telephone=no">
-    <title>화환 문구 모음</title>
+    <title>전국 화환·화분·꽃 3시간 퀵배송</title>   
     <style>
         @font-face {
             font-family: 'JoseonPalace';
@@ -1619,7 +1619,7 @@
             position: relative;
             border-radius: 8px;
             overflow: hidden;
-            aspect-ratio: 2/3;
+            aspect-ratio: 1;
             background: #f0f0f0;
         }
 
@@ -1645,43 +1645,43 @@
             text-overflow: ellipsis;
         }
 
-        .delivery-nav {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 32px;
-            height: 32px;
-            background: rgba(255,255,255,0.9);
-            border: 1px solid #ddd;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            color: #666;
-            z-index: 10;
-            transition: all 0.2s;
-        }
-
-        .delivery-nav:hover {
-            background: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-
-        .delivery-nav.prev {
-            left: 5px;
-        }
-
-        .delivery-nav.next {
-            right: 5px;
-        }
-
         .delivery-loading {
             text-align: center;
             padding: 40px;
             color: #888;
             font-size: 14px;
+        }
+
+        /* 배송사진 dots 인디케이터 */
+        .delivery-nav-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .delivery-nav-dots {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .delivery-nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ddd;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .delivery-nav-dot:hover {
+            background: #bbb;
+        }
+
+        .delivery-nav-dot.active {
+            background: #0b5c55;
         }
 
         @media (max-width: 480px) {
@@ -1690,10 +1690,13 @@
                 min-width: calc(33.333% - 7px);
             }
 
-            .delivery-nav {
-                width: 28px;
-                height: 28px;
-                font-size: 12px;
+            .delivery-nav-dot {
+                width: 6px;
+                height: 6px;
+            }
+
+            .delivery-nav-dots {
+                gap: 4px;
             }
         }
     </style>
@@ -1714,10 +1717,13 @@
             </div>
             <div class="delivery-slider-container">
                 <div class="delivery-slider" id="deliverySlider">
-                    <div class="delivery-loading">배송사진을 불러오는 중...</div>
+                    <!-- 배송사진이 여기에 표시됩니다 -->
                 </div>
-                <button class="delivery-nav prev" onclick="slideDelivery(-1)">&lt;</button>
-                <button class="delivery-nav next" onclick="slideDelivery(1)">&gt;</button>
+            </div>
+            <div class="delivery-nav-buttons">
+                <div class="delivery-nav-dots" id="deliveryDots">
+                    <!-- dots가 여기에 표시됩니다 -->
+                </div>
             </div>
         </div>
 
@@ -2917,75 +2923,97 @@
         });
 
         // =====================================================
-        // 배송사진 슬라이더 (CORS 프록시 사용)
+        // 배송사진 슬라이더 (수동 데이터 + 자동 슬라이드)
         // =====================================================
         let deliverySlidePosition = 0;
-        let deliveryPhotos = [];
-        const DELIVERY_VISIBLE_COUNT = window.innerWidth <= 480 ? 3 : 4;
+        let deliveryAutoSlideInterval = null;
+        const DELIVERY_AUTO_SLIDE_DELAY = 3000; // 3초마다 자동 슬라이드
 
-        // 배송사진 로드
-        async function loadDeliveryPhotos() {
-            const slider = document.getElementById('deliverySlider');
+        // 배송사진 데이터 (수동 업데이트)
+// 마지막 업데이트: 2026-01-16 15:11
+const deliveryPhotos = [
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzUEOgjAQheG7dG-nU5DIcBhScAoITcm0pAvj3RVduHp_3uZzZOmZqFwidcimukRtQ2rOeVwngCVMR2LREhMHt35qjHoVGDhlv8XCAhL6ITq5g_OZZV_GfAiDNbYBg981iFe0pkGsb3V7Qf3Yp9NBS0rYs7D0c0z5_KwhVUrRf-BcJ6ru9QY4GjbD&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/912',
+        name: '이선* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOgyAQheF3mX0ZwEvi-DAG7XipEsiAYdH03VvbRVfnz9l8jiw9E1UEpxzQXCfqWoI150iIm1_OxKIkJPZu_9QU1C44csrzEQoLih_G4OSObs4scZvyKYxW2xa1-a42prZVrZuq6Ux7M-oRl8sxlkB4ZmEZ1pDy9VlNUEpRf-BcJ0L_egM4cTbE&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/911',
+        name: '노영* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzUEOgyAQheG7sC8DgzFxPIxBO6hVghkwLJrevbVddPX-vM3nCemZyZE6ZVd9pq4ltZRyEMAa5zOzaEmZo98-NSW9CYycS9hTZQGJw5i83MGHwnKsUzmFAQ22YOx3jbVoXdNg45zpblY_jvlyLJISDiwsw5JyuT40pGqt-g_8RNW_3ja4Nr0.&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/910',
+        name: '김희*님 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOwiAQheF3YS_D0Abj9GEaWqeXtEgzQFgY312rC1fnz9l8niw9EzWkiuyqS3RzpJacDwJYw1xcEouWmDj47VNj1JvAwClPe6wsIKEfopc7-CmzHOuYizBYYx0Y_K5BbLFBZ2xr3PWC-njMp4OWlPDEwtIvMeXzs4ZUrVX_gZ-outcbN1Q2wA..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/909',
+        name: '고객'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOwiAQheF3YS_DpdYwfZiG1unFltAMEBbGd9fqwtX5czafR4PPhBZF4V10CV2LYsn5QIA1zCURS46Jgt8-NUa5MQyU8rTHSgwc-iF6voOfMvGxjrkwgVGmBaW_q7RulLOmcTfrrhctH8d8OtqgYJqIifslpnx-RqGotco_8BNF93oDO5s20Q..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/908',
+        name: '박인* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOgyAQheF3YV8GMNI4PoxBO16qBDJAWJi-e2u76Or8OZvPocEzYYOi8CH6hJ1FseYcEWDzS0nEkkNcIu_2T01B7gwjpTwfoRID-2EMjh_g5kwctykXJjDKWFD6u0rrRtvWqvbeteqm5TMul6MNCqaZmHhYQ8rXZxSKWqv8Az9R9K83Obw2yQ..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/907',
+        name: '김대* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOgjAQheF36d5OL9HG4WFIwSkgNCXTNl0Y313Qhavz52w-jwZfGS2KypvoMt4dirmUHQGWONVMLDllin49akxyZRgol7ClRgwc-yF5foAPhXhfxlKZwChzA6W_q7S22hp7PdK5i5bPnaYT0gYFUyAm7ueUy_kZhaK1Jv_CjxTd-wNyMzdcJw..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/906',
+        name: '비전*크 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOgjAQheF36d5Opyixw8OQgsNFaEqmJV0Q313Rhavz52w-T5aORBWpXVbVJHI1qSnnjVww5jDuiUVLTBz88qk-6kWg45SHNRYWkNB20csD_JBZtrnPuzBYY2sw-F2DaPFeuQqvDm8X1M9tPB20pIQHFpZ2iimfnzWkSin6D_xE1bzeOX42yA..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/905',
+        name: '김혜* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOgjAQheF36d5OpxjU4WFIweFcIjRtpiVdEN9d0IWr_-RsPkeW9kQVqU1W1SR61KSmnCMBzH7cEouWkNi75Vh90ItAxykPaygsIL7tgpNcJ7ghs8S5z5swWGNrMPitQbR4q-5HrmguqF9xPB20pIQHFpZ2CimfnzWkSin6D_xE1bw_NbY2uA..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/904',
+        name: '고객'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzUEOgjAQheG7dG-nHQLKcBhScAoITcm0pAvj3RVduHp_3uZzhPRMVJE6ZFNdorYhNee8E8ASpiOxaImJg1s_NUa9Cgycst9iYQEJ_RCd3MH5zLIvYz6EAQ02YOx3jbVoK3Otb3WD7cXqxz6djkVSwp6FpZ9jyueHhlQpRf-Bn6i61xs5zTbK&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/903',
+        name: '강미* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOgjAQheF36d5OZ4igw8OQgsNFICXTki6I767owtX5czafZ-IjcsFm18XUke8lmzGljQGmddijqNUQZfXzp7pgZ4VWYuqXkEVB16YNXh_g-yS6TV3aVYAcleDwuw6RsHBXulUlVhe0z204HSQ2Kr2oaDOGmM6PHJucs_0DP9HUrzc4WzbE&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/902',
+        name: '강미* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzUEOgjAQheG7dG-nHQTDcBhScAoITcm0pAvj3RVduHp_3uZzhPRMVJE6ZFNdorYhNee8E8ASpiOxaImJg1s_NUa9Cgycst9iYQEJ_RCd3MH5zLIvYz6EAQ02YOx3jbVo2uqGVX2tzcXqxz6djkVSwp6FpZ9jyueHhlQpRf-Bn6i61xs4FTbC&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/901',
+        name: '고객'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFjUsSgyAQBe_CPgyM-Y6HsdAMatSCGqBYpHL3xGSRVb_qxWtHSM9EDalcIqtqE92OpKacIwHM21gSi5aQeHPLZw1BLwI9p-zXUFlAtq4PTu7gfGaJ85CLMKDBMxj7pbEWL7bB68mYg9WPOO4Vi6SEPQtLN4WUd4eGVK1V_-9_PdW-3terNlQ.&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/900',
+        name: '박성* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzUEOgjAQheG7dG-nM5gmDochBaeAQEqmJV0Y767owtX78zZfYOJn5obNoatpM988m6mUnQHmbTyyqNWUZQvLp4ZkF4VecolrqqKgW9enoHcIsYju81AOFSBHHhx-1yFcIhFdsfFEzQXtYx9PB4mNShQV7aaUy_mRY1NrtX_gXCea9vUGNQs2tg..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/899',
+        name: '심지* 님'
+    },
+    {
+        imgSrc: 'https://www.bestflower.co.kr/IU/U=eNpFzcsOgjAQheF36d5OZzQow8OQgsNFICXTNl0Y313Rhavz52w-z8TPyGc2WVfTRK4rNlNKOwPM25ijqNUQZfPLp_pgF4VOYhrWUERBt7YLXu_ghyS6z33KKkCOKnD4XYeIRFhjdbne8IT2sY-Hg8RGZRAVbacQ0_GRY1NKsX_gXCea5vUGOGQ2xA..&S=300x300',
+        href: 'https://www.bestflower.co.kr/board/board_detail/code/afterpicture/number/898',
+        name: '박유* 님'
+    }
+];
 
-            try {
-                // CORS 프록시를 통해 bestflower 메인페이지 가져오기
-                const proxyUrl = 'https://api.allorigins.win/raw?url=';
-                const targetUrl = encodeURIComponent('https://www.bestflower.co.kr/');
-
-                const response = await fetch(proxyUrl + targetUrl);
-                const html = await response.text();
-
-                // HTML 파싱
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-
-                // 갤러리 이미지 추출
-                const galleryItems = doc.querySelectorAll('.gallery_B6606 .item');
-                deliveryPhotos = [];
-
-                galleryItems.forEach(item => {
-                    const link = item.querySelector('a');
-                    const img = item.querySelector('img');
-                    const name = item.querySelector('.name');
-
-                    if (link && img) {
-                        let imgSrc = img.getAttribute('src');
-                        let href = link.getAttribute('href');
-
-                        // 상대 경로를 절대 경로로 변환
-                        if (imgSrc && !imgSrc.startsWith('http')) {
-                            imgSrc = 'https://www.bestflower.co.kr' + imgSrc;
-                        }
-                        if (href && !href.startsWith('http')) {
-                            href = 'https://www.bestflower.co.kr' + href;
-                        }
-
-                        deliveryPhotos.push({
-                            imgSrc: imgSrc,
-                            href: href,
-                            name: name ? name.textContent.trim() : ''
-                        });
-                    }
-                });
-
-                // 중복 제거 (slick에서 복제된 슬라이드 제거)
-                const uniquePhotos = [];
-                const seenHrefs = new Set();
-                deliveryPhotos.forEach(photo => {
-                    if (!seenHrefs.has(photo.href)) {
-                        seenHrefs.add(photo.href);
-                        uniquePhotos.push(photo);
-                    }
-                });
-                deliveryPhotos = uniquePhotos.slice(0, 15); // 최대 15개만
-
-                // 슬라이더 렌더링
-                renderDeliverySlider();
-
-            } catch (error) {
-                console.error('배송사진 로드 실패:', error);
-                slider.innerHTML = '<div class="delivery-loading">배송사진을 불러올 수 없습니다.</div>';
-            }
+        // 슬라이더 초기화
+        function initDeliverySlider() {
+            renderDeliverySlider();
+            renderDeliveryDots();
+            startDeliveryAutoSlide();
         }
 
         // 슬라이더 렌더링
@@ -3010,31 +3038,94 @@
             updateDeliverySlider();
         }
 
-        // 슬라이더 이동
-        function slideDelivery(direction) {
+        // Dots 인디케이터 렌더링
+        function renderDeliveryDots() {
+            const dotsContainer = document.getElementById('deliveryDots');
             const visibleCount = window.innerWidth <= 480 ? 3 : 4;
-            const maxPosition = Math.max(0, deliveryPhotos.length - visibleCount);
+            const totalPages = Math.ceil(deliveryPhotos.length / visibleCount);
 
-            deliverySlidePosition = Math.max(0, Math.min(maxPosition, deliverySlidePosition + direction));
+            dotsContainer.innerHTML = Array.from({length: totalPages}, (_, i) =>
+                `<div class="delivery-nav-dot ${i === 0 ? 'active' : ''}" data-page="${i}" onclick="goToDeliveryPage(${i})"></div>`
+            ).join('');
+        }
+
+        // 특정 페이지로 이동
+        function goToDeliveryPage(pageIndex) {
+            const visibleCount = window.innerWidth <= 480 ? 3 : 4;
+            deliverySlidePosition = pageIndex * visibleCount;
+
+            // 최대 위치 제한
+            const maxPosition = Math.max(0, deliveryPhotos.length - visibleCount);
+            deliverySlidePosition = Math.min(deliverySlidePosition, maxPosition);
+
             updateDeliverySlider();
+            updateDeliveryDots();
+            resetDeliveryAutoSlide();
         }
 
         // 슬라이더 위치 업데이트
         function updateDeliverySlider() {
             const slider = document.getElementById('deliverySlider');
-            const slideWidth = slider.querySelector('.delivery-slide')?.offsetWidth || 0;
+            const slide = slider.querySelector('.delivery-slide');
+            if (!slide) return;
+
+            const slideWidth = slide.offsetWidth;
             const gap = 10;
 
             slider.style.transform = `translateX(-${deliverySlidePosition * (slideWidth + gap)}px)`;
         }
 
-        // 페이지 로드 시 배송사진 로드
-        document.addEventListener('DOMContentLoaded', loadDeliveryPhotos);
+        // Dots 활성화 상태 업데이트
+        function updateDeliveryDots() {
+            const visibleCount = window.innerWidth <= 480 ? 3 : 4;
+            const currentPage = Math.floor(deliverySlidePosition / visibleCount);
+            const dots = document.querySelectorAll('.delivery-nav-dot');
+
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentPage);
+            });
+        }
+
+        // 자동 슬라이드 시작
+        function startDeliveryAutoSlide() {
+            stopDeliveryAutoSlide();
+            deliveryAutoSlideInterval = setInterval(() => {
+                const visibleCount = window.innerWidth <= 480 ? 3 : 4;
+                const maxPosition = Math.max(0, deliveryPhotos.length - visibleCount);
+
+                deliverySlidePosition += visibleCount;
+                if (deliverySlidePosition > maxPosition) {
+                    deliverySlidePosition = 0;
+                }
+
+                updateDeliverySlider();
+                updateDeliveryDots();
+            }, DELIVERY_AUTO_SLIDE_DELAY);
+        }
+
+        // 자동 슬라이드 중지
+        function stopDeliveryAutoSlide() {
+            if (deliveryAutoSlideInterval) {
+                clearInterval(deliveryAutoSlideInterval);
+                deliveryAutoSlideInterval = null;
+            }
+        }
+
+        // 자동 슬라이드 리셋 (사용자 조작 후 재시작)
+        function resetDeliveryAutoSlide() {
+            stopDeliveryAutoSlide();
+            startDeliveryAutoSlide();
+        }
+
+        // 페이지 로드 시 슬라이더 초기화
+        document.addEventListener('DOMContentLoaded', initDeliverySlider);
 
         // 화면 크기 변경 시 슬라이더 업데이트
         window.addEventListener('resize', function() {
             if (deliveryPhotos.length > 0) {
+                renderDeliveryDots();
                 updateDeliverySlider();
+                updateDeliveryDots();
             }
         });
 
