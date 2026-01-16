@@ -1573,23 +1573,127 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .delivery-photos-section h3 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
+        .delivery-photos-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 12px;
         }
 
-        .delivery-photos-iframe {
-            width: 100%;
-            height: 400px;
-            border: none;
+        .delivery-photos-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        .delivery-photos-header a {
+            font-size: 13px;
+            color: #888;
+            text-decoration: none;
+        }
+
+        .delivery-photos-header a:hover {
+            color: #333;
+        }
+
+        .delivery-slider-container {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .delivery-slider {
+            display: flex;
+            transition: transform 0.5s ease;
+            gap: 10px;
+        }
+
+        .delivery-slide {
+            flex: 0 0 calc(25% - 8px);
+            min-width: calc(25% - 8px);
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .delivery-slide .photo {
+            position: relative;
             border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 2/3;
+            background: #f0f0f0;
+        }
+
+        .delivery-slide .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .delivery-slide:hover .photo img {
+            transform: scale(1.05);
+        }
+
+        .delivery-slide .name {
+            display: block;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .delivery-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 32px;
+            background: rgba(255,255,255,0.9);
+            border: 1px solid #ddd;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #666;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+
+        .delivery-nav:hover {
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .delivery-nav.prev {
+            left: 5px;
+        }
+
+        .delivery-nav.next {
+            right: 5px;
+        }
+
+        .delivery-loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-size: 14px;
         }
 
         @media (max-width: 480px) {
-            .delivery-photos-iframe {
-                height: 300px;
+            .delivery-slide {
+                flex: 0 0 calc(33.333% - 7px);
+                min-width: calc(33.333% - 7px);
+            }
+
+            .delivery-nav {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
             }
         }
     </style>
@@ -1604,12 +1708,17 @@
 
         <!-- 배송사진 섹션 -->
         <div class="delivery-photos-section">
-            <h3>실제 배송사진</h3>
-            <iframe
-                class="delivery-photos-iframe"
-                src="https://www.bestflower.co.kr/board/board_list/code/afterpicture"
-                loading="lazy">
-            </iframe>
+            <div class="delivery-photos-header">
+                <h3>실제 배송사진</h3>
+                <a href="https://www.bestflower.co.kr/board/board_list/code/afterpicture" target="_blank">더보기 &gt;</a>
+            </div>
+            <div class="delivery-slider-container">
+                <div class="delivery-slider" id="deliverySlider">
+                    <div class="delivery-loading">배송사진을 불러오는 중...</div>
+                </div>
+                <button class="delivery-nav prev" onclick="slideDelivery(-1)">&lt;</button>
+                <button class="delivery-nav next" onclick="slideDelivery(1)">&gt;</button>
+            </div>
         </div>
 
         <!-- 메인 탭 버튼 -->
@@ -2804,6 +2913,128 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeImageZoom();
+            }
+        });
+
+        // =====================================================
+        // 배송사진 슬라이더 (CORS 프록시 사용)
+        // =====================================================
+        let deliverySlidePosition = 0;
+        let deliveryPhotos = [];
+        const DELIVERY_VISIBLE_COUNT = window.innerWidth <= 480 ? 3 : 4;
+
+        // 배송사진 로드
+        async function loadDeliveryPhotos() {
+            const slider = document.getElementById('deliverySlider');
+
+            try {
+                // CORS 프록시를 통해 bestflower 메인페이지 가져오기
+                const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                const targetUrl = encodeURIComponent('https://www.bestflower.co.kr/');
+
+                const response = await fetch(proxyUrl + targetUrl);
+                const html = await response.text();
+
+                // HTML 파싱
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // 갤러리 이미지 추출
+                const galleryItems = doc.querySelectorAll('.gallery_B6606 .item');
+                deliveryPhotos = [];
+
+                galleryItems.forEach(item => {
+                    const link = item.querySelector('a');
+                    const img = item.querySelector('img');
+                    const name = item.querySelector('.name');
+
+                    if (link && img) {
+                        let imgSrc = img.getAttribute('src');
+                        let href = link.getAttribute('href');
+
+                        // 상대 경로를 절대 경로로 변환
+                        if (imgSrc && !imgSrc.startsWith('http')) {
+                            imgSrc = 'https://www.bestflower.co.kr' + imgSrc;
+                        }
+                        if (href && !href.startsWith('http')) {
+                            href = 'https://www.bestflower.co.kr' + href;
+                        }
+
+                        deliveryPhotos.push({
+                            imgSrc: imgSrc,
+                            href: href,
+                            name: name ? name.textContent.trim() : ''
+                        });
+                    }
+                });
+
+                // 중복 제거 (slick에서 복제된 슬라이드 제거)
+                const uniquePhotos = [];
+                const seenHrefs = new Set();
+                deliveryPhotos.forEach(photo => {
+                    if (!seenHrefs.has(photo.href)) {
+                        seenHrefs.add(photo.href);
+                        uniquePhotos.push(photo);
+                    }
+                });
+                deliveryPhotos = uniquePhotos.slice(0, 15); // 최대 15개만
+
+                // 슬라이더 렌더링
+                renderDeliverySlider();
+
+            } catch (error) {
+                console.error('배송사진 로드 실패:', error);
+                slider.innerHTML = '<div class="delivery-loading">배송사진을 불러올 수 없습니다.</div>';
+            }
+        }
+
+        // 슬라이더 렌더링
+        function renderDeliverySlider() {
+            const slider = document.getElementById('deliverySlider');
+
+            if (deliveryPhotos.length === 0) {
+                slider.innerHTML = '<div class="delivery-loading">배송사진이 없습니다.</div>';
+                return;
+            }
+
+            slider.innerHTML = deliveryPhotos.map(photo => `
+                <a class="delivery-slide" href="${photo.href}" target="_blank">
+                    <div class="photo">
+                        <img src="${photo.imgSrc}" alt="${photo.name}" loading="lazy">
+                    </div>
+                    <span class="name">${photo.name}</span>
+                </a>
+            `).join('');
+
+            deliverySlidePosition = 0;
+            updateDeliverySlider();
+        }
+
+        // 슬라이더 이동
+        function slideDelivery(direction) {
+            const visibleCount = window.innerWidth <= 480 ? 3 : 4;
+            const maxPosition = Math.max(0, deliveryPhotos.length - visibleCount);
+
+            deliverySlidePosition = Math.max(0, Math.min(maxPosition, deliverySlidePosition + direction));
+            updateDeliverySlider();
+        }
+
+        // 슬라이더 위치 업데이트
+        function updateDeliverySlider() {
+            const slider = document.getElementById('deliverySlider');
+            const slideWidth = slider.querySelector('.delivery-slide')?.offsetWidth || 0;
+            const gap = 10;
+
+            slider.style.transform = `translateX(-${deliverySlidePosition * (slideWidth + gap)}px)`;
+        }
+
+        // 페이지 로드 시 배송사진 로드
+        document.addEventListener('DOMContentLoaded', loadDeliveryPhotos);
+
+        // 화면 크기 변경 시 슬라이더 업데이트
+        window.addEventListener('resize', function() {
+            if (deliveryPhotos.length > 0) {
+                updateDeliverySlider();
             }
         });
 
